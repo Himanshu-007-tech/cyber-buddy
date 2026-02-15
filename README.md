@@ -6,8 +6,9 @@ Unlike traditional security tools that only block threats, Cyber Buddy educates 
 
 🚀 Demo
 
-🎥 Demo Video: (Add your YouTube link here)
-🌐 Live Demo: (Add deployment link if available)
+🎥 Demo Video: https://youtu.be/gkdpGysAiJ0
+
+🌐 Live Demo: https://cyber-buddymain.netlify.app/
 
 🎯 Problem Statement
 
@@ -97,13 +98,23 @@ Reduced cloud dependency
 
 🏗 System Architecture
 User (Student)
+
      ↓
+     
 Frontend (React.js)
+
      ↓
+     
 Backend (Node.js / Express.js)
+
      ↓
+     
 AI Engine (Phishing Detection Model / AI API)
+
      ↓
+     
 Threat Analysis & Explanation
+
      ↓
+     
 Response to User Dashboard
