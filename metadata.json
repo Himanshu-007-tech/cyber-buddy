@@ -1,0 +1,8 @@
+{
+  "name": "CyberBuddy",
+  "description": "A friendly AI cybersecurity companion for students that helps detect phishing, explains risks in simple terms, and teaches digital hygiene.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
