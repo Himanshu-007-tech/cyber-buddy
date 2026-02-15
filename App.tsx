@@ -52,7 +52,6 @@ const App: React.FC = () => {
       setView('academy');
     } catch (err) {
       console.error("Login sync failed:", err);
-      alert("Database connection failed. Please check your network.");
     } finally {
       setIsSyncing(false);
     }
@@ -81,26 +80,25 @@ const App: React.FC = () => {
         imageUrl = URL.createObjectURL(image);
         const base64Data = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            resolve(result.split(',')[1]);
-          };
-          reader.onerror = reject;
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = () => reject(new Error("Failed to read image file"));
           reader.readAsDataURL(image);
         });
         imagePayload = { data: base64Data, mimeType: image.type };
       }
 
-      const userText = text.trim() || "Analyze this media artifact.";
+      // Context-aware instruction for empty text with images
+      const userText = text.trim() || "Analyze this security artifact for threats. Explain what you see.";
+      
       const userMsg: Message = {
         id: 'msg-user-' + Date.now(),
         role: MessageRole.USER,
-        text: userText,
+        text: text.trim() ? text.trim() : "[Image Uploaded]",
         imageUrl,
         timestamp: new Date()
       };
 
-      // Construct history from current state BEFORE updating it
+      // Prepare history payload (only text for history to keep it lightweight)
       const historyPayload = messages.map(m => ({
         role: m.role === MessageRole.USER ? 'user' : 'model',
         parts: [{ text: m.text }]
@@ -108,7 +106,7 @@ const App: React.FC = () => {
 
       setMessages(prev => [...prev, userMsg]);
       
-      // Save user turn to DB
+      // Save local representation (exclude large data)
       await saveMessageToBackend(userName, { ...userMsg, imageUrl: undefined });
 
       const botText = await generateCyberBuddyResponse(
@@ -129,9 +127,22 @@ const App: React.FC = () => {
       await saveMessageToBackend(userName, botMsg);
     } catch (err) {
       console.error("Critical Send Failure:", err);
+      // Fallback message so user isn't left hanging
+      setMessages(prev => [...prev, {
+        id: 'err-' + Date.now(),
+        role: MessageRole.BOT,
+        text: "I encountered a neural synchronization error. Please check your image size or network and try again.",
+        timestamp: new Date()
+      }]);
     } finally {
+      // ALWAYS reset loading states to prevent "continuous searching"
       setIsLoading(false);
       setIsSyncing(false);
+      // Memory cleanup for local previews
+      if (imageUrl) {
+        // We delay revocation slightly to ensure the browser has rendered the image in the message list
+        setTimeout(() => URL.revokeObjectURL(imageUrl!), 5000);
+      }
     }
   };
 
@@ -201,14 +212,14 @@ const App: React.FC = () => {
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                   <span className="text-[10px] font-black text-emerald-400 uppercase">Shield Active</span>
                </div>
-               <p className="text-[11px] text-slate-400">PII scrubbing engine is currently online.</p>
+               <p className="text-[11px] text-slate-400">Neural scrubbing engine is online.</p>
             </div>
           </div>
 
           <div className="mt-auto space-y-4">
              <div className="p-4 border border-indigo-500/10 rounded-2xl bg-indigo-500/5">
                 <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Session Protocol</p>
-                <p className="text-[11px] text-slate-400 font-medium">Neural link secured via SOC Academy Gateway.</p>
+                <p className="text-[11px] text-slate-400 font-medium">Neural link secured via SOC Gateway.</p>
              </div>
           </div>
         </aside>
@@ -234,8 +245,8 @@ const App: React.FC = () => {
                         : 'glass-card border-white/5 text-slate-200 rounded-tl-none'
                     }`}>
                       {m.imageUrl && (
-                        <div className="mb-4 rounded-2xl overflow-hidden border border-white/10 shadow-lg">
-                          <img src={m.imageUrl} alt="Uploaded" className="w-full h-auto max-h-64 object-cover" />
+                        <div className="mb-4 rounded-2xl overflow-hidden border border-white/10 shadow-lg bg-black/20">
+                          <img src={m.imageUrl} alt="Uploaded Artifact" className="w-full h-auto max-h-64 object-contain" />
                         </div>
                       )}
                       <div className="prose prose-invert max-w-none">
