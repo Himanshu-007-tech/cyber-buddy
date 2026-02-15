@@ -76,38 +76,43 @@ const App: React.FC = () => {
     let imageUrl: string | undefined;
     let imagePayload: { data: string, mimeType: string } | undefined;
 
-    if (image) {
-      imageUrl = URL.createObjectURL(image);
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve) => {
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        reader.readAsDataURL(image);
-      });
-      imagePayload = { data: await base64Promise, mimeType: image.type };
-    }
-
-    const userMsg: Message = {
-      id: 'msg-user-' + Date.now(),
-      role: MessageRole.USER,
-      text: text || "Analyze this media artifact.",
-      imageUrl,
-      timestamp: new Date()
-    };
-
-    // Construct history from current state BEFORE updating it with the new message
-    const historyPayload = messages.map(m => ({
-      role: m.role === MessageRole.USER ? 'user' : 'model',
-      parts: [{ text: m.text }]
-    }));
-
-    setMessages(prev => [...prev, userMsg]);
-    
-    const dbUserMsg = { ...userMsg, imageUrl: undefined };
-    await saveMessageToBackend(userName, dbUserMsg);
-
     try {
+      if (image) {
+        imageUrl = URL.createObjectURL(image);
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1]);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(image);
+        });
+        imagePayload = { data: base64Data, mimeType: image.type };
+      }
+
+      const userText = text.trim() || "Analyze this media artifact.";
+      const userMsg: Message = {
+        id: 'msg-user-' + Date.now(),
+        role: MessageRole.USER,
+        text: userText,
+        imageUrl,
+        timestamp: new Date()
+      };
+
+      // Construct history from current state BEFORE updating it
+      const historyPayload = messages.map(m => ({
+        role: m.role === MessageRole.USER ? 'user' : 'model',
+        parts: [{ text: m.text }]
+      }));
+
+      setMessages(prev => [...prev, userMsg]);
+      
+      // Save user turn to DB
+      await saveMessageToBackend(userName, { ...userMsg, imageUrl: undefined });
+
       const botText = await generateCyberBuddyResponse(
-        userMsg.text, 
+        userText, 
         currentLanguage.name, 
         historyPayload,
         imagePayload
@@ -123,7 +128,7 @@ const App: React.FC = () => {
       setMessages(prev => [...prev, botMsg]);
       await saveMessageToBackend(userName, botMsg);
     } catch (err) {
-      console.error("Gemini Failure:", err);
+      console.error("Critical Send Failure:", err);
     } finally {
       setIsLoading(false);
       setIsSyncing(false);
@@ -155,7 +160,8 @@ const App: React.FC = () => {
       }
 
       if (formatted.includes('🛡 Safety Score')) {
-        const score = formatted.match(/\d+/)?.[0] || '0';
+        const scoreMatch = formatted.match(/\d+/);
+        const score = scoreMatch ? scoreMatch[0] : '0';
         result.push(
           <div key={i} className="my-6 p-6 glass-card rounded-3xl border-indigo-500/20 flex flex-col items-center">
             <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-4">Resilience Score</span>
