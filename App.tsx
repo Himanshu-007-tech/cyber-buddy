@@ -59,7 +59,6 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-    // Immediate state reset to redirect back to the identity portal (landing page)
     setView('portal');
     setUserName('');
     setMessages([]);
@@ -90,10 +89,16 @@ const App: React.FC = () => {
     const userMsg: Message = {
       id: 'msg-user-' + Date.now(),
       role: MessageRole.USER,
-      text: text || "Media Analysis Requested.",
+      text: text || "Analyze this media artifact.",
       imageUrl,
       timestamp: new Date()
     };
+
+    // Construct history from current state BEFORE updating it with the new message
+    const historyPayload = messages.map(m => ({
+      role: m.role === MessageRole.USER ? 'user' : 'model',
+      parts: [{ text: m.text }]
+    }));
 
     setMessages(prev => [...prev, userMsg]);
     
@@ -101,15 +106,10 @@ const App: React.FC = () => {
     await saveMessageToBackend(userName, dbUserMsg);
 
     try {
-      const history = messages.map(m => ({
-        role: m.role === MessageRole.USER ? 'user' : 'model',
-        parts: [{ text: m.text }]
-      }));
-
       const botText = await generateCyberBuddyResponse(
         userMsg.text, 
         currentLanguage.name, 
-        history,
+        historyPayload,
         imagePayload
       );
 
